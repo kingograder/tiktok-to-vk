@@ -1,0 +1,7 @@
+.env
+data/
+__pycache__/
+cookies.txt
+*.mp4
+*.m4a
+logs
