@@ -20,7 +20,7 @@ class TikTokSettings(BaseSettings):
 
     @model_validator(mode="before")
     @classmethod
-    def empty_str_to_none(cls, values):
+    def clean_values(cls, values):
         for key in ("PROXY",):
             if key in values and isinstance(values[key], str):
                 val = values[key].strip().strip("\"'")
@@ -28,6 +28,9 @@ class TikTokSettings(BaseSettings):
                     values[key] = None
                 elif val != values[key].strip():
                     values[key] = val
+        for key in ("COLLECTION_URL", "COOKIES_FILE"):
+            if key in values and isinstance(values[key], str):
+                values[key] = values[key].split("#")[0].strip()
         return values
 
 
