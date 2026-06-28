@@ -21,6 +21,21 @@ def _find_video_file(video_id: str, download_dir: str) -> str | None:
     return None
 
 
+def _parse_cookies_for_ydl(path: str) -> dict[str, str]:
+    cookies: dict[str, str] = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                if line.startswith("#") or not line.strip():
+                    continue
+                parts = line.strip().split("\t")
+                if len(parts) >= 7:
+                    cookies[parts[5]] = parts[6]
+    except OSError:
+        pass
+    return cookies
+
+
 def _download_video_sync(item: dict, download_dir: str, cookies_file: str,
                          proxy: str | None = None) -> str | None:
     tiktok_id = str(item.get("id", ""))
@@ -28,14 +43,19 @@ def _download_video_sync(item: dict, download_dir: str, cookies_file: str,
     username = author.get("uniqueId", "")
     video_url = f"https://www.tiktok.com/@{username}/video/{tiktok_id}"
 
+    cookie_dict = _parse_cookies_for_ydl(cookies_file)
+    cookie_header = "; ".join(f"{k}={v}" for k, v in cookie_dict.items())
+
     ydl_opts = {
         "format": "bv*+ba/b, bv*",
         "outtmpl": os.path.join(download_dir, f"{tiktok_id}.%(ext)s"),
-        "cookiefile": cookies_file,
         "impersonate": ImpersonateTarget.from_str("chrome"),
         "quiet": True,
         "logger": logger,
         "noprogress": True,
+        "http_headers": {
+            "Cookie": cookie_header,
+        },
     }
     if proxy:
         ydl_opts["proxy"] = proxy
