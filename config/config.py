@@ -60,8 +60,11 @@ def _load_settings() -> tuple[TikTokSettings, VKSettings, AppSettings]:
         for err in e.errors():
             field = "_".join(str(x) for x in err["loc"])
             env_var = _ENV_HINT.get(field, field)
-            print(f"  - {env_var} is required but not set", file=sys.stderr)
-        print("\nCreate a .env file based on .env.example", file=sys.stderr)
+            msg = err["msg"]
+            if "Field required" in msg:
+                msg = "is required but not set"
+            print(f"  - {env_var}: {msg}", file=sys.stderr)
+        print("\nCreate or fix your .env file based on .env.example", file=sys.stderr)
         sys.exit(1)
 
 
