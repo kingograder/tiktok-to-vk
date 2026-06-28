@@ -94,7 +94,7 @@ python main.py
 ### Docker
 
 ```bash
-docker build -t tiktok-to-vk .
+docker build -t tiktok-to-vk . --no-cache
 docker run --env-file .env -e TIKTOK_COOKIES_FILE="/app/cookies.txt" -v ./cookies.txt:/app/cookies.txt -v ./data:/app/data tiktok-to-vk
 ```
 
