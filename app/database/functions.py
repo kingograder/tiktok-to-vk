@@ -33,9 +33,9 @@ async def mark_discovered(
     if existing:
         if not existing.username and username:
             existing.username = username
-        return False
+        return True
     session.add(Video(tiktok_id=tiktok_id, username=username))
-    return True
+    return False
 
 
 async def get_undownloaded(session: AsyncSession) -> list[Video]:
