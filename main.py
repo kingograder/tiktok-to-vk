@@ -97,44 +97,44 @@ async def _process_one(
 
         logger.info("Downloaded %s -> %s", vid, os.path.basename(path))
 
-        desc = build_description(vid, username)
-        result = await upload_clip(video_path=path, description=desc)
+    desc = build_description(vid, username)
+    result = await upload_clip(video_path=path, description=desc)
 
-        if result is None:
-            async with _retries_lock:
-                _retries[vid] = _retries.get(vid, 0) + 1
-                retries_count = _retries[vid]
-            if retries_count >= config.app.MAX_RETRIES:
-                logger.error("Giving up on %s after %d retries", vid, retries_count)
-                async with session_factory() as session:
-                    await mark_download_failed(session, vid)
-                    await session.commit()
-                async with _retries_lock:
-                    _retries.pop(vid, None)
-            return
-
+    if result is None:
         async with _retries_lock:
-            _retries.pop(vid, None)
-
-        vk_video_id, vk_owner_id = result
-
-        async with session_factory() as session:
-            await mark_uploaded(session, vid, vk_video_id, vk_owner_id)
-            await session.commit()
-
-        logger.info("Uploaded %s -> VK %d_%d", vid, vk_owner_id, vk_video_id)
-
-        if config.app.CLEAR_DOWNLOADS:
+            _retries[vid] = _retries.get(vid, 0) + 1
+            retries_count = _retries[vid]
+        if retries_count >= config.app.MAX_RETRIES:
+            logger.error("Giving up on %s after %d retries", vid, retries_count)
             async with session_factory() as session:
-                video_row = await _find_video(session, vid)
-                if video_row and video_row.filename:
-                    deleted = await asyncio.to_thread(
-                        _cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video_row.filename)
-                    )
-                    if deleted:
-                        await mark_deleted(session, vid)
-                        await session.commit()
-                        logger.info("Deleted %s from disk", video_row.filename)
+                await mark_download_failed(session, vid)
+                await session.commit()
+            async with _retries_lock:
+                _retries.pop(vid, None)
+        return
+
+    async with _retries_lock:
+        _retries.pop(vid, None)
+
+    vk_video_id, vk_owner_id = result
+
+    async with session_factory() as session:
+        await mark_uploaded(session, vid, vk_video_id, vk_owner_id)
+        await session.commit()
+
+    logger.info("Uploaded %s -> VK %d_%d", vid, vk_owner_id, vk_video_id)
+
+    if config.app.CLEAR_DOWNLOADS:
+        async with session_factory() as session:
+            video_row = await _find_video(session, vid)
+            if video_row and video_row.filename:
+                deleted = await asyncio.to_thread(
+                    _cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video_row.filename)
+                )
+                if deleted:
+                    await mark_deleted(session, vid)
+                    await session.commit()
+                    logger.info("Deleted %s from disk", video_row.filename)
 
 
 async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> None:
