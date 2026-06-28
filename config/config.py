@@ -22,10 +22,8 @@ class TikTokSettings(BaseSettings):
     @classmethod
     def empty_str_to_none(cls, values):
         for key in ("PROXY",):
-            if key in values and isinstance(values[key], str):
-                stripped = values[key].strip()
-                if not stripped or stripped.startswith("#"):
-                    values[key] = None
+            if key in values and isinstance(values[key], str) and values[key].strip() == "":
+                values[key] = None
         return values
 
 
