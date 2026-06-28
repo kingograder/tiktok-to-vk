@@ -1,8 +1,14 @@
 import asyncio
+import json
 import logging
 import re
+import time
+import urllib.parse
 
-from curl_cffi import requests
+import yt_dlp
+from yt_dlp.networking.common import Request
+from yt_dlp.networking.impersonate import ImpersonateTarget
+from yt_dlp.utils import int_or_none
 
 from config.config import config
 
@@ -20,22 +26,13 @@ _NETWORK_ERRORS = (
     "Read timed out",
     "Failed to resolve",
     "Max retries exceeded",
+    "Connection timed out",
 )
 
-
-def _parse_cookies(path: str) -> dict[str, str]:
-    cookies: dict[str, str] = {}
-    try:
-        with open(path) as f:
-            for line in f:
-                if line.startswith("#") or not line.strip():
-                    continue
-                parts = line.strip().split("\t")
-                if len(parts) >= 7:
-                    cookies[parts[5]] = parts[6]
-    except OSError as e:
-        logger.warning("Failed to read cookies from %s: %s", path, e)
-    return cookies
+_COOKIE_ERRORS = (
+    "Log in for access",
+    "status code 10203",
+)
 
 
 def _parse_collection_url(url: str) -> str | None:
@@ -45,59 +42,98 @@ def _parse_collection_url(url: str) -> str | None:
     return m.group("id")
 
 
+def _traverse(obj, path, default=None):
+    current = obj
+    for key in path:
+        if isinstance(current, dict):
+            current = current.get(key)
+        elif isinstance(current, (list, tuple)) and isinstance(key, int):
+            try:
+                current = current[key]
+            except (IndexError, TypeError):
+                return default
+        else:
+            return default
+        if current is None:
+            return default
+    return current
+
+
 def _fetch_collection_sync(collection_url: str, cookies_file: str,
                            proxy: str | None = None) -> list[dict]:
     collection_id = _parse_collection_url(collection_url)
     if not collection_id:
         raise ValueError(f"Invalid collection URL: {collection_url}")
 
-    cookies = _parse_cookies(cookies_file)
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "cookiefile": cookies_file,
+        "impersonate": ImpersonateTarget.from_str("chrome"),
+    }
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     all_items: list[dict] = []
     cursor = 0
 
     while True:
+        params = {
+            "aid": "1988",
+            "collectionId": collection_id,
+            "count": "30",
+            "cursor": str(cursor),
+            "sourceType": "113",
+        }
+        api_url = f"{_API_URL}?{urllib.parse.urlencode(params)}"
+
         last_error = None
         for attempt in range(config.app.MAX_RETRIES):
             try:
-                resp = requests.get(
-                    _API_URL,
-                    params={
-                        "aid": "1988",
-                        "collectionId": collection_id,
-                        "count": 30,
-                        "cursor": cursor,
-                        "sourceType": "113",
-                    },
-                    cookies=cookies,
-                    impersonate="chrome",
-                    proxies=proxy,
-                )
-                data = resp.json()
-                items = data.get("itemList", [])
-
-                for v in items:
-                    all_items.append({
-                        "id": str(v["id"]),
-                        "author": {"uniqueId": v.get("author", {}).get("uniqueId", "")},
-                    })
-
-                if not data.get("hasMore"):
-                    return all_items
-                cursor += len(items)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    req = Request(api_url)
+                    resp = ydl.urlopen(req)
+                    data = json.loads(resp.read())
                 break
-
             except Exception as e:
                 last_error = e
                 err_msg = str(e)
-                if any(n in err_msg for n in _NETWORK_ERRORS) and attempt < config.app.MAX_RETRIES - 1:
-                    import time
-                    time.sleep(2 * (attempt + 1))
-                    continue
+
+                if any(c in err_msg for c in _COOKIE_ERRORS):
+                    logger.error("Cookie error: %s — update cookies.txt", err_msg)
+                    raise
+
+                if any(n in err_msg for n in _NETWORK_ERRORS):
+                    if attempt < config.app.MAX_RETRIES - 1:
+                        logger.warning("Network error (attempt %d/%d): %s",
+                                       attempt + 1, config.app.MAX_RETRIES, err_msg)
+                        time.sleep(2 * (attempt + 1))
+                        continue
                 raise
         else:
-            if last_error:
-                raise last_error
+            raise RuntimeError("Max retries exceeded for collection API")
+
+        items = _traverse(data, ("itemList",)) or []
+
+        for v in items:
+            video_id = _traverse(v, ("id",)) or _traverse(v, ("aweme_id",))
+            if not video_id:
+                continue
+            unique_id = _traverse(v, ("author", "uniqueId")) or ""
+            all_items.append({
+                "id": str(video_id),
+                "author": {"uniqueId": unique_id},
+            })
+
+        has_more = _traverse(data, ("hasMore",), default=False)
+        if not has_more:
+            return all_items
+
+        new_cursor = int_or_none(_traverse(data, ("cursor",)))
+        if new_cursor and new_cursor != cursor:
+            cursor = new_cursor
+        else:
+            cursor += len(items)
 
     return all_items
 
