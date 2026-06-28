@@ -1,8 +1,5 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from dotenv import load_dotenv
-
-load_dotenv()
 
 
 class TikTokSettings(BaseSettings):
@@ -10,6 +7,8 @@ class TikTokSettings(BaseSettings):
     COLLECTION_URL: str
     COOKIES_FILE: str = "cookies.txt"
     PROXY: str | None = None
+    REQUEST_TIMEOUT: int = 30
+    RETRY_DELAY: int = 2
 
     @model_validator(mode="before")
     @classmethod
@@ -25,30 +24,29 @@ class VKSettings(BaseSettings):
     TOKEN: str
     API_VERSION: str = "5.199"
     CLIP_VISIBILITY: str = "all"
+    UPLOAD_TIMEOUT: int = 300
+    MIN_INTERVAL: float = 0.35
+    POLL_ATTEMPTS: int = 12
+    POLL_INTERVAL: int = 5
 
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_", env_file=".env", extra="ignore")
-    DOWNLOAD_DIR: str = "downloads"
-    CHECK_INTERVAL: int = 1800
-    DB_PATH: str = "data/clips.db"
-    LOG_DIR: str = ""
+    DOWNLOAD_DIR: str = "data/downloads"
+    CHECK_INTERVAL: int = 3600
+    DB_PATH: str = "data/database.db"
+    LOG_FILE: str = ""
     ROTATE_VIDEO: bool = False
     CONCURRENT_DOWNLOADS: int = 3
-    CONCURRENT_UPLOADS: int = 3
     MAX_RETRIES: int = 3
-
-
-class VKUploadSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="VK_", env_file=".env", extra="ignore")
-    POLL_ATTEMPTS: int = 12
-    POLL_INTERVAL: int = 5
+    CLEAR_DOWNLOADS: bool = True
+    TARGET_WIDTH: int = 1080
+    TARGET_HEIGHT: int = 1920
 
 
 class Config:
     tiktok = TikTokSettings()
     vk = VKSettings()
-    vk_upload = VKUploadSettings()
     app = AppSettings()
 
 

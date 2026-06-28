@@ -8,14 +8,22 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from config.config import config
-from app.tiktok.downloader import download_video, extract_username, fetch_video_ids, build_description
-from app.vk.uploader import upload_clip
+from app.tiktok.scrapper import discover_posts
+from app.tiktok.downloader import download_video
+from app.vk.uploader import build_description, upload_clip
 from app.video.processor import ensure_vertical
 from app.database.functions import (
-    get_new_ids, mark_downloaded, mark_uploaded, get_pending_upload,
-    get_pending_delete, mark_deleted,
+    mark_discovered,
+    get_undownloaded,
+    mark_downloaded,
+    mark_download_failed,
+    mark_uploaded,
+    get_pending_delete,
+    mark_deleted,
+    init_db,
+    _find_video,
 )
-from app.database.functions import init_db
+from app.database.models import Video
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +34,7 @@ _retries: dict[str, int] = {}
 _retries_lock = asyncio.Lock()
 
 
-def _signal_handler(signum: int, frame) -> None:
+def _signal_handler(signum: int, frame: None = None) -> None:
     global _shutdown
     if _shutdown:
         logger.warning("Forced exit")
@@ -39,169 +47,166 @@ def _get_db_url() -> str:
     return f"sqlite+aiosqlite:///{config.app.DB_PATH}"
 
 
-def _load_collections_sync() -> list[str]:
-    collections_file = "collections.txt"
-    if not os.path.exists(collections_file):
-        return [config.tiktok.COLLECTION_URL]
-
-    collections = []
-    with open(collections_file, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            collections.append(line.split()[0])
-    return collections
+def _parse_collections() -> list[str]:
+    return [url.strip() for url in config.tiktok.COLLECTION_URL.split(",") if url.strip()]
 
 
-async def _load_collections() -> list[str]:
-    return await asyncio.to_thread(_load_collections_sync)
+def _cleanup_file_sync(path: str) -> bool:
+    try:
+        os.remove(path)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError as e:
+        logger.warning("Failed to delete %s: %s", path, e)
+        return False
 
 
-def _cleanup_partial_file_sync(video_id: str, download_dir: str) -> None:
-    for f in os.listdir(download_dir):
-        stem = f.rsplit(".", 1)[0] if "." in f else f
-        if stem == video_id:
-            path = os.path.join(download_dir, f)
-            try:
-                os.remove(path)
-                logger.info("Removed partial file %s", f)
-            except OSError:
-                pass
-
-
-async def _download_one(
-    collection_url: str,
-    position: int,
-    vid: str,
-    username: str | None,
-    session_factory: async_sessionmaker[AsyncSession],
-) -> None:
-    if _shutdown:
-        return
-
-    logger.info("Download %s", vid)
-
-    path, author_name = await download_video(
-        collection_url,
-        position=position,
-        video_id=vid,
-        download_dir=DOWNLOAD_DIR,
-        cookies_file=config.tiktok.COOKIES_FILE,
-        proxy=config.tiktok.PROXY,
-        username=username,
-    )
-    if path is None:
-        await asyncio.to_thread(_cleanup_partial_file_sync, vid, DOWNLOAD_DIR)
-        return
-
-    path = await ensure_vertical(path)
-
-    async with session_factory() as session:
-        await mark_downloaded(session, vid, os.path.basename(path), username, author_name)
-        await session.commit()
-
-
-async def _upload_one(
+async def _process_one(
     sem: asyncio.Semaphore,
-    video,
+    item: dict,
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     async with sem:
         if _shutdown:
             return
 
-        path = os.path.join(DOWNLOAD_DIR, video.filename)
-        if not os.path.exists(path):
-            logger.warning("Missing %s, skip upload", video.filename)
-            async with _retries_lock:
-                _retries[video.tiktok_id] = _retries.get(video.tiktok_id, 0) + 1
+        vid = str(item.get("id", ""))
+        if not vid:
+            logger.warning("Skipping item with empty id")
             return
 
-        desc = build_description(video.tiktok_id, video.username, video.author_name)
-        result = await upload_clip(
-            video_path=path,
-            description=desc,
+        username = item.get("author", {}).get("uniqueId")
+        logger.info("Processing %s @%s", vid, username)
+
+        path = await download_video(
+            item, DOWNLOAD_DIR,
+            config.tiktok.COOKIES_FILE, config.tiktok.PROXY,
         )
-        if result is None:
-            async with _retries_lock:
-                _retries[video.tiktok_id] = _retries.get(video.tiktok_id, 0) + 1
-                if _retries[video.tiktok_id] >= config.app.MAX_RETRIES:
-                    logger.error("Giving up on %s after %d retries", video.tiktok_id, _retries[video.tiktok_id])
-            return
 
-        vk_video_id, vk_owner_id = result
         async with session_factory() as session:
-            await mark_uploaded(session, video.tiktok_id, vk_video_id, vk_owner_id)
+            if path is None:
+                logger.error("Failed to download %s @%s", vid, username)
+                await mark_download_failed(session, vid)
+                await session.commit()
+                return
+
+            path = await ensure_vertical(path)
+            await mark_downloaded(session, vid, os.path.basename(path))
             await session.commit()
 
+        logger.info("Downloaded %s -> %s", vid, os.path.basename(path))
 
-def _delete_file_sync(path: str) -> bool:
-    if os.path.exists(path):
-        try:
-            os.remove(path)
-            return True
-        except OSError:
-            logger.warning("Failed to delete %s", path)
-    return False
+        desc = build_description(vid, username)
+        result = await upload_clip(video_path=path, description=desc)
+
+        if result is None:
+            async with _retries_lock:
+                _retries[vid] = _retries.get(vid, 0) + 1
+                retries_count = _retries[vid]
+            if retries_count >= config.app.MAX_RETRIES:
+                logger.error("Giving up on %s after %d retries", vid, retries_count)
+            return
+
+        async with _retries_lock:
+            _retries.pop(vid, None)
+
+        vk_video_id, vk_owner_id = result
+
+        async with session_factory() as session:
+            await mark_uploaded(session, vid, vk_video_id, vk_owner_id)
+            await session.commit()
+
+        logger.info("Uploaded %s -> VK %d_%d", vid, vk_owner_id, vk_video_id)
+
+        if config.app.CLEAR_DOWNLOADS:
+            async with session_factory() as session:
+                video_row = await _find_video(session, vid)
+                if video_row and video_row.filename:
+                    deleted = await asyncio.to_thread(
+                        _cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video_row.filename)
+                    )
+                    if deleted:
+                        await mark_deleted(session, vid)
+                        await session.commit()
+                        logger.info("Deleted %s from disk", video_row.filename)
 
 
 async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> None:
-    collections = await _load_collections()
+    collections = _parse_collections()
+    logger.info("Loaded %d collections", len(collections))
 
     download_sem = asyncio.Semaphore(config.app.CONCURRENT_DOWNLOADS)
 
-    # Phase 1: download all videos from all collections
     for collection_url in collections:
         if _shutdown:
             break
 
-        username = extract_username(collection_url)
+        logger.info("Discovering posts from %s", collection_url)
 
-        all_video_ids = await fetch_video_ids(
-            collection_url,
-            cookies_file=config.tiktok.COOKIES_FILE,
-            proxy=config.tiktok.PROXY,
-        )
+        try:
+            all_items = await discover_posts(
+                collection_url, config.tiktok.COOKIES_FILE, config.tiktok.PROXY,
+            )
+        except ValueError:
+            logger.error("Invalid collection URL: %s", collection_url)
+            continue
+        except Exception:
+            logger.exception("Failed to discover posts from %s", collection_url)
+            continue
+
+        logger.info("Discovered %d entries", len(all_items))
+        if not all_items:
+            continue
 
         async with session_factory() as session:
-            video_ids = await get_new_ids(session, all_video_ids)
+            for item in all_items:
+                await mark_discovered(
+                    session,
+                    str(item.get("id", "")),
+                    item.get("author", {}).get("uniqueId"),
+                )
+            await session.commit()
 
-        position_map = {vid: i + 1 for i, vid in enumerate(all_video_ids)}
-        tasks = [
-            _download_one(download_sem, collection_url, position_map[vid], vid, username, session_factory)
-            for vid in video_ids
-        ]
-        await asyncio.gather(*tasks)
+        async with session_factory() as session:
+            pending = await get_undownloaded(session)
 
-    if _shutdown:
-        return
+        logger.info("Pending download: %d", len(pending))
 
-    # Phase 2: upload to VK
-    upload_sem = asyncio.Semaphore(config.app.CONCURRENT_UPLOADS)
+        item_map = {str(item.get("id", "")): item for item in all_items}
 
-    async with session_factory() as session:
-        pending = await get_pending_upload(session)
+        tasks = []
+        skipped = 0
+        for video in pending:
+            item = item_map.get(video.tiktok_id)
+            if item:
+                tasks.append(_process_one(download_sem, item, session_factory))
+            else:
+                skipped += 1
 
-    tasks = [_upload_one(upload_sem, video, session_factory) for video in pending]
-    await asyncio.gather(*tasks)
+        if skipped:
+            logger.info("Skipped %d videos no longer in collection", skipped)
 
-    if _shutdown:
-        return
+        if tasks:
+            logger.info("Starting %d tasks", len(tasks))
+            await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Phase 3: cleanup uploaded files
-    async with session_factory() as session:
-        pending_delete = await get_pending_delete(session)
+    if not _shutdown:
+        async with session_factory() as session:
+            pending_delete = await get_pending_delete(session)
 
-    for video in pending_delete:
-        if _shutdown:
-            break
-        path = os.path.join(DOWNLOAD_DIR, video.filename)
-        deleted = await asyncio.to_thread(_delete_file_sync, path)
-        if deleted:
-            async with session_factory() as session:
-                await mark_deleted(session, video.tiktok_id)
-                await session.commit()
+        for video in pending_delete:
+            if _shutdown:
+                break
+            if not video.filename:
+                continue
+            deleted = await asyncio.to_thread(
+                _cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video.filename)
+            )
+            if deleted:
+                async with session_factory() as session:
+                    await mark_deleted(session, video.tiktok_id)
+                    await session.commit()
 
 
 async def run_once(session_factory: async_sessionmaker[AsyncSession], engine) -> None:
@@ -233,11 +238,11 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    log_dir = config.app.LOG_DIR
-    if log_dir:
-        log_dir = os.path.dirname(log_dir) or "."
+    log_file = config.app.LOG_FILE
+    if log_file:
+        log_dir = os.path.dirname(log_file) or "."
         os.makedirs(log_dir, exist_ok=True)
-        log_filename = datetime.now().strftime("debug_%Y-%m-%d_%H-%M-%S.log")
+        log_filename = datetime.now().strftime("app_%Y-%m-%d_%H-%M-%S.log")
         log_path = os.path.join(log_dir, log_filename)
         logging.basicConfig(
             level=logging.INFO,

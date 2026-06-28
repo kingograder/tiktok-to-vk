@@ -7,17 +7,20 @@ from pathlib import Path
 import av
 from PIL import Image
 
+from config.config import config
+
 logger = logging.getLogger(__name__)
 
 SLIDESHOW_TMP_DIR = Path(tempfile.gettempdir()) / "gallery_dl"
-TARGET_W, TARGET_H = 1080, 1920
 
 
 def _pad_image(img: Image.Image) -> Image.Image:
-    img.thumbnail((TARGET_W, TARGET_H), Image.LANCZOS)
-    canvas = Image.new("RGB", (TARGET_W, TARGET_H), (0, 0, 0))
-    x = (TARGET_W - img.width) // 2
-    y = (TARGET_H - img.height) // 2
+    target_w = config.app.TARGET_WIDTH
+    target_h = config.app.TARGET_HEIGHT
+    img.thumbnail((target_w, target_h), Image.LANCZOS)
+    canvas = Image.new("RGB", (target_w, target_h), (0, 0, 0))
+    x = (target_w - img.width) // 2
+    y = (target_h - img.height) // 2
     canvas.paste(img, (x, y))
     return canvas
 
@@ -37,7 +40,7 @@ def _render_slideshow_sync(video_id: str, download_dir: str) -> str | None:
     tmp = SLIDESHOW_TMP_DIR
     tmp.mkdir(parents=True, exist_ok=True)
 
-    image_files = sorted(f for f in os.listdir(tmp) if f.endswith(".jpg"))
+    image_files = sorted(f for f in os.listdir(tmp) if f.lower().endswith((".jpg", ".jpeg", ".png")))
     audio_path = tmp / "audio.mp3"
 
     if not image_files:
@@ -54,9 +57,15 @@ def _render_slideshow_sync(video_id: str, download_dir: str) -> str | None:
         return None
 
     image_count = len(image_files)
-    slide_duration = max(2.0, min(3.0, audio_duration / image_count))
+    min_dur = config.slideshow.MIN_SLIDE_DURATION
+    max_dur = config.slideshow.MAX_SLIDE_DURATION
+    fps = config.slideshow.FPS
+    target_w = config.app.TARGET_WIDTH
+    target_h = config.app.TARGET_HEIGHT
+
+    slide_duration = max(min_dur, min(max_dur, audio_duration / image_count))
     total_duration = max(slide_duration * image_count, audio_duration)
-    fps = 30
+    frames_per_slide = int(slide_duration * fps)
 
     out_path = Path(download_dir) / f"{video_id}.mp4"
 
@@ -66,8 +75,8 @@ def _render_slideshow_sync(video_id: str, download_dir: str) -> str | None:
         out = av.open(str(out_path), mode="w")
 
         vstream = out.add_stream("h264", rate=fps)
-        vstream.width = TARGET_W
-        vstream.height = TARGET_H
+        vstream.width = target_w
+        vstream.height = target_h
         vstream.pix_fmt = "yuv420p"
 
         aout = av.open(str(audio_path))
@@ -81,7 +90,6 @@ def _render_slideshow_sync(video_id: str, download_dir: str) -> str | None:
             padded = _pad_image(img)
             frame = av.VideoFrame.from_image(padded)
 
-            frames_per_slide = int(slide_duration * fps)
             for _ in range(frames_per_slide):
                 frame.pts = pts
                 pts += 1
