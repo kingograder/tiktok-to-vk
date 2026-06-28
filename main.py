@@ -160,23 +160,24 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
             logger.exception("Failed to discover posts from %s", collection_url)
             continue
 
-        logger.info("Discovered %d entries", len(all_items))
         if not all_items:
+            logger.info("Collection is empty or unavailable")
             continue
 
         async with session_factory() as session:
+            new_count = 0
             for item in all_items:
-                await mark_discovered(
+                existed = await mark_discovered(
                     session,
                     str(item.get("id", "")),
                     item.get("author", {}).get("uniqueId"),
                 )
+                if not existed:
+                    new_count += 1
             await session.commit()
 
         async with session_factory() as session:
             pending = await get_undownloaded(session)
-
-        logger.info("Pending download: %d", len(pending))
 
         item_map = {str(item.get("id", "")): item for item in all_items}
 
@@ -189,11 +190,12 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
             else:
                 skipped += 1
 
-        if skipped:
-            logger.info("Skipped %d videos no longer in collection", skipped)
+        logger.info(
+            "Collection: %d total, %d new, %d to download, %d skipped",
+            len(all_items), new_count, len(tasks), skipped,
+        )
 
         if tasks:
-            logger.info("Starting %d tasks", len(tasks))
             await asyncio.gather(*tasks, return_exceptions=True)
 
     if not _shutdown:
