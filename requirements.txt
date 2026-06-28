@@ -1,0 +1,7 @@
+yt-dlp[curl-cffi]>=2025.6.26
+aiohttp>=3.10.0
+aiosqlite>=0.20.0
+python-dotenv>=1.0.0
+curl-cffi>=0.15.0
+sqlalchemy[asyncio]>=2.0.51
+pydantic-settings>=2.14.2
