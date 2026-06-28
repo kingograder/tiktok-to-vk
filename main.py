@@ -106,6 +106,11 @@ async def _process_one(
                 retries_count = _retries[vid]
             if retries_count >= config.app.MAX_RETRIES:
                 logger.error("Giving up on %s after %d retries", vid, retries_count)
+                async with session_factory() as session:
+                    await mark_download_failed(session, vid)
+                    await session.commit()
+                async with _retries_lock:
+                    _retries.pop(vid, None)
             return
 
         async with _retries_lock:
