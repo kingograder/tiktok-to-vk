@@ -3,7 +3,8 @@
 .env
 .env.example
 *.md
-*.txt
+plan.txt
+pain.txt
 data/
 logs/
 downloads/
@@ -14,5 +15,3 @@ venv/
 docker-compose*.yml
 Dockerfile
 .dockerignore
-plan.txt
-pain.txt
