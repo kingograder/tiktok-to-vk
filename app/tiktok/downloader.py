@@ -6,6 +6,8 @@ import time
 import yt_dlp
 from yt_dlp.networking.impersonate import ImpersonateTarget
 
+from config.config import config
+
 logger = logging.getLogger(__name__)
 
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mkv"}
@@ -39,7 +41,7 @@ def _download_video_sync(item: dict, download_dir: str, cookies_file: str,
         ydl_opts["proxy"] = proxy
 
     last_err = None
-    for attempt in range(3):
+    for attempt in range(config.app.MAX_RETRIES):
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(video_url, download=True)
@@ -56,7 +58,7 @@ def _download_video_sync(item: dict, download_dir: str, cookies_file: str,
                 "Failed to resolve",
                 "Max retries exceeded",
             ))
-            if is_network_error and attempt < 2:
+            if is_network_error and attempt < config.app.MAX_RETRIES - 1:
                 time.sleep(2 * (attempt + 1))
                 continue
             break

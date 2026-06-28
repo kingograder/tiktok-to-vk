@@ -56,7 +56,7 @@ def _fetch_collection_sync(collection_url: str, cookies_file: str,
     all_items: list[dict] = []
     cursor = 0
 
-    for attempt in range(3):
+    for attempt in range(config.app.MAX_RETRIES):
         try:
             resp = requests.get(
                 _API_URL,
@@ -86,7 +86,7 @@ def _fetch_collection_sync(collection_url: str, cookies_file: str,
 
         except Exception as e:
             err_msg = str(e)
-            if any(n in err_msg for n in _NETWORK_ERRORS) and attempt < 2:
+            if any(n in err_msg for n in _NETWORK_ERRORS) and attempt < config.app.MAX_RETRIES - 1:
                 import time
                 time.sleep(2 * (attempt + 1))
                 continue
