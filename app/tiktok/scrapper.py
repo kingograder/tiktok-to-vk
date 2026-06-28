@@ -107,5 +107,4 @@ async def discover_posts(collection_url: str, cookies_file: str,
     items = await asyncio.to_thread(
         _fetch_collection_sync, collection_url, cookies_file, proxy,
     )
-    logger.info("Discovered %d entries", len(items))
     return items
