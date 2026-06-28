@@ -269,14 +269,14 @@ if __name__ == "__main__":
         log_path = os.path.join(log_dir, log_filename)
         logging.basicConfig(
             level=logging.INFO,
-            format="[%(levelname)s] %(message)s",
+            format="%(asctime)s %(name)s %(levelname)s: %(message)s",
             handlers=[
                 logging.FileHandler(log_path, encoding="utf-8"),
                 logging.StreamHandler(),
             ],
         )
     else:
-        logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
 
     parser = argparse.ArgumentParser(description="TikTok collection -> VK Clips")
     parser.add_argument("--once", action="store_true", help="Run single cycle then exit")
