@@ -95,8 +95,13 @@ python main.py
 
 ```bash
 docker build -t tiktok-to-vk .
-docker run --env-file .env -v ./cookies.txt:/app/cookies.txt -v ./data:/app/data tiktok-to-vk
+docker run --env-file .env \
+  -v ./cookies.txt:/app/cookies.txt \
+  -v ./data:/app/data \
+  tiktok-to-vk
 ```
+
+`-v ./cookies.txt:/app/cookies.txt` — монтирует локальный `cookies.txt` в контейнер по пути `/app/cookies.txt`. Это переопределяет `TIKTOK_COOKIES_FILE` из `.env`, который по умолчанию указывает на `cookies.txt` (относительно рабочей директории контейнера).
 
 ## Как это работает
 
