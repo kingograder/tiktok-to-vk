@@ -4,6 +4,7 @@ import os
 import time
 
 import yt_dlp
+from yt_dlp.networking.impersonate import ImpersonateTarget
 
 from config.config import config
 
@@ -31,7 +32,7 @@ def _download_video_sync(item: dict, download_dir: str, cookies_file: str,
         "format": "bv*+ba/b, bv*",
         "outtmpl": os.path.join(download_dir, f"{tiktok_id}.%(ext)s"),
         "cookiefile": cookies_file,
-        "impersonate": "chrome",
+        "impersonate": ImpersonateTarget.from_str("chrome"),
         "quiet": True,
         "logger": logger,
         "noprogress": True,
