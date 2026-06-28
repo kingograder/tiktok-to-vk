@@ -1,5 +1,13 @@
-from pydantic import model_validator
+import sys
+
+from pydantic import ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+_ENV_HINT = {
+    "COLLECTION_URL": "TIKTOK_COLLECTION_URL",
+    "TOKEN": "VK_TOKEN",
+}
 
 
 class TikTokSettings(BaseSettings):
@@ -44,10 +52,24 @@ class AppSettings(BaseSettings):
     TARGET_HEIGHT: int = 1920
 
 
+def _load_settings() -> tuple[TikTokSettings, VKSettings, AppSettings]:
+    try:
+        return TikTokSettings(), VKSettings(), AppSettings()
+    except ValidationError as e:
+        print("Configuration errors:", file=sys.stderr)
+        for err in e.errors():
+            field = "_".join(str(x) for x in err["loc"])
+            env_var = _ENV_HINT.get(field, field)
+            print(f"  - {env_var} is required but not set", file=sys.stderr)
+        print("\nCreate a .env file based on .env.example", file=sys.stderr)
+        sys.exit(1)
+
+
 class Config:
-    tiktok = TikTokSettings()
-    vk = VKSettings()
-    app = AppSettings()
+    tiktok: TikTokSettings
+    vk: VKSettings
+    app: AppSettings
 
 
 config = Config()
+config.tiktok, config.vk, config.app = _load_settings()

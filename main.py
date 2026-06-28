@@ -239,11 +239,27 @@ async def run_daemon(session_factory: async_sessionmaker[AsyncSession], engine) 
     logger.info("Daemon stopped")
 
 
+def _check_prerequisites() -> None:
+    if not config.tiktok.COOKIES_FILE or not os.path.exists(config.tiktok.COOKIES_FILE):
+        logger.error("Cookies file not found: %s", config.tiktok.COOKIES_FILE)
+        sys.exit(1)
+
+    if not config.tiktok.COLLECTION_URL:
+        logger.error("TIKTOK_COLLECTION_URL is not set in .env")
+        sys.exit(1)
+
+    if not config.vk.TOKEN:
+        logger.error("VK_TOKEN is not set in .env")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     import argparse
     from dotenv import load_dotenv
 
     load_dotenv()
+
+    _check_prerequisites()
 
     log_file = config.app.LOG_FILE
     if log_file:
@@ -253,22 +269,18 @@ if __name__ == "__main__":
         log_path = os.path.join(log_dir, log_filename)
         logging.basicConfig(
             level=logging.INFO,
-            format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+            format="[%(levelname)s] %(message)s",
             handlers=[
                 logging.FileHandler(log_path, encoding="utf-8"),
                 logging.StreamHandler(),
             ],
         )
     else:
-        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
+        logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
     parser = argparse.ArgumentParser(description="TikTok collection -> VK Clips")
     parser.add_argument("--once", action="store_true", help="Run single cycle then exit")
     args = parser.parse_args()
-
-    if not os.path.exists(config.tiktok.COOKIES_FILE):
-        logger.error("Cookies file not found: %s", config.tiktok.COOKIES_FILE)
-        sys.exit(1)
 
     os.makedirs(os.path.dirname(config.app.DB_PATH) or ".", exist_ok=True)
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
