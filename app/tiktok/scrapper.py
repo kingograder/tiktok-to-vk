@@ -82,7 +82,7 @@ def _fetch_collection_sync(collection_url: str, cookies_file: str,
 
             if not data.get("hasMore"):
                 break
-            cursor += 30
+            cursor += len(items)
 
         except Exception as e:
             err_msg = str(e)
