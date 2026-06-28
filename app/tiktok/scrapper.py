@@ -76,17 +76,6 @@ def _fetch_collection_sync(collection_url: str, cookies_file: str,
                 data = resp.json()
                 items = data.get("itemList", [])
 
-                if "error" in data:
-                    logger.error("API error: %s", data["error"])
-
-                if not items:
-                    logger.warning("API returned empty itemList, status=%d, cursor=%d, keys=%s, hasMore=%s",
-                                   resp.status_code, cursor, list(data.keys()), data.get("hasMore"))
-                    if not data.get("hasMore"):
-                        return all_items
-                    cursor += 30
-                    continue
-
                 for v in items:
                     all_items.append({
                         "id": str(v["id"]),
