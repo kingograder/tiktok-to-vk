@@ -17,7 +17,8 @@ GITHUB_REPO = "https://github.com/kingograder/tiktok-to-vk"
 
 def build_description(tiktok_id: str, username: str | None) -> str:
     lines = [f"Author: {username}"] if username else []
-    lines += [f"Original: https://www.tiktok.com/video/{tiktok_id}", f"Source: {GITHUB_REPO}"]
+    original_url = f"https://www.tiktok.com/@{username}/video/{tiktok_id}" if username else f"https://www.tiktok.com/video/{tiktok_id}"
+    lines += [f"Original: {original_url}", f"Source: {GITHUB_REPO}"]
     return "\n".join(lines)
 
 
