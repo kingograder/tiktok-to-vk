@@ -5,25 +5,25 @@ import signal
 import sys
 from datetime import datetime
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from config.config import config
-from app.tiktok.scrapper import discover_posts
-from app.tiktok.downloader import download_video
-from app.vk.uploader import build_description, upload_clip
-from app.video.processor import ensure_vertical
 from app.database.functions import (
-    mark_discovered,
-    get_undownloaded,
-    mark_downloaded,
-    mark_download_failed,
-    mark_uploaded,
-    get_pending_delete,
-    mark_deleted,
-    init_db,
     _find_video,
+    get_pending_delete,
+    get_undownloaded,
+    init_db,
+    mark_deleted,
+    mark_discovered,
+    mark_download_failed,
+    mark_downloaded,
+    mark_uploaded,
 )
 from app.database.models import Video
+from app.tiktok.downloader import download_video
+from app.tiktok.scrapper import discover_posts
+from app.video.processor import ensure_vertical
+from app.vk.uploader import build_description, upload_clip
+from config.config import config
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +80,10 @@ async def _process_one(
         logger.info("Processing %s @%s", vid, username)
 
         path = await download_video(
-            item, DOWNLOAD_DIR,
-            config.tiktok.COOKIES_FILE, config.tiktok.PROXY,
+            item,
+            DOWNLOAD_DIR,
+            config.tiktok.COOKIES_FILE,
+            config.tiktok.PROXY,
         )
 
         async with session_factory() as session:
@@ -128,9 +130,7 @@ async def _process_one(
         async with session_factory() as session:
             video_row = await _find_video(session, vid)
             if video_row and video_row.filename:
-                deleted = await asyncio.to_thread(
-                    _cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video_row.filename)
-                )
+                deleted = await asyncio.to_thread(_cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video_row.filename))
                 if deleted:
                     await mark_deleted(session, vid)
                     await session.commit()
@@ -151,7 +151,9 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
 
         try:
             all_items = await discover_posts(
-                collection_url, config.tiktok.COOKIES_FILE, config.tiktok.PROXY,
+                collection_url,
+                config.tiktok.COOKIES_FILE,
+                config.tiktok.PROXY,
             )
         except ValueError:
             logger.error("Invalid collection URL: %s", collection_url)
@@ -182,18 +184,7 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
         item_map = {str(item.get("id", "")): item for item in all_items}
 
         tasks = []
-        skipped = 0
-        for video in pending:
-            item = item_map.get(video.tiktok_id)
-            if item:
-                tasks.append(_process_one(download_sem, item, session_factory))
-            else:
-                skipped += 1
-
-        logger.info(
-            "Collection: %d total, %d new, %d to download, %d skipped",
-            len(all_items), new_count, len(tasks), skipped,
-        )
+        logger.info("Collection: %d total, %d new, %d to download", len(all_items), new_count, len(tasks))
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -207,9 +198,7 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
                 break
             if not video.filename:
                 continue
-            deleted = await asyncio.to_thread(
-                _cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video.filename)
-            )
+            deleted = await asyncio.to_thread(_cleanup_file_sync, os.path.join(DOWNLOAD_DIR, video.filename))
             if deleted:
                 async with session_factory() as session:
                     await mark_deleted(session, video.tiktok_id)
@@ -255,6 +244,7 @@ def _check_prerequisites() -> None:
 
 if __name__ == "__main__":
     import argparse
+
     from dotenv import load_dotenv
 
     load_dotenv()
