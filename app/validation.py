@@ -1,6 +1,4 @@
 import logging
-import os
-import sys
 
 import aiohttp
 
@@ -8,20 +6,6 @@ from app.tiktok.scrapper import _parse_collection_url, _parse_cookies
 from config.config import config
 
 logger = logging.getLogger(__name__)
-
-
-def check_prerequisites() -> None:
-    if not config.tiktok.COOKIES_FILE or not os.path.exists(config.tiktok.COOKIES_FILE):
-        logger.error("Cookies file not found: %s", config.tiktok.COOKIES_FILE)
-        sys.exit(1)
-
-    if not config.tiktok.COLLECTION_URL:
-        logger.error("TIKTOK_COLLECTION_URL is not set in .env")
-        sys.exit(1)
-
-    if not config.vk.TOKEN:
-        logger.error("VK_TOKEN is not set in .env")
-        sys.exit(1)
 
 
 async def validate_tiktok() -> bool:

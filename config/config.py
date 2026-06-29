@@ -1,11 +1,12 @@
+import os
 import sys
 
-from pydantic import ValidationError, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pydantic import ValidationError, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict  # noqa: I001
 
 _ENV_HINT = {
     "COLLECTION_URL": "TIKTOK_COLLECTION_URL",
+    "COOKIES_FILE": "TIKTOK_COOKIES_FILE",
     "TOKEN": "VK_TOKEN",
 }
 
@@ -33,6 +34,27 @@ class TikTokSettings(BaseSettings):
                 values[key] = values[key].split("#")[0].strip()
         return values
 
+    @field_validator("COLLECTION_URL")
+    @classmethod
+    def non_empty_collection_url(cls, v):
+        if not v or not v.strip():
+            raise ValueError("TIKTOK_COLLECTION_URL must not be empty")
+        return v
+
+    @field_validator("COOKIES_FILE")
+    @classmethod
+    def cookies_file_exists(cls, v):
+        if v and not os.path.isfile(v):
+            raise ValueError(f"Cookies file not found: {v}")
+        return v
+
+    @field_validator("REQUEST_TIMEOUT", "RETRY_DELAY")
+    @classmethod
+    def positive_int(cls, v):
+        if v <= 0:
+            raise ValueError(f"Must be positive, got {v}")
+        return v
+
 
 class VKSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="VK_", env_file=".env", extra="ignore")
@@ -43,6 +65,27 @@ class VKSettings(BaseSettings):
     MIN_INTERVAL: float = 0.35
     POLL_ATTEMPTS: int = 12
     POLL_INTERVAL: int = 5
+
+    @field_validator("TOKEN")
+    @classmethod
+    def non_empty_token(cls, v):
+        if not v or not v.strip():
+            raise ValueError("VK_TOKEN must not be empty")
+        return v
+
+    @field_validator("UPLOAD_TIMEOUT", "POLL_ATTEMPTS", "POLL_INTERVAL")
+    @classmethod
+    def positive_int(cls, v):
+        if v <= 0:
+            raise ValueError(f"Must be positive, got {v}")
+        return v
+
+    @field_validator("MIN_INTERVAL")
+    @classmethod
+    def non_negative_float(cls, v):
+        if v < 0:
+            raise ValueError(f"Must be non-negative, got {v}")
+        return v
 
 
 class AppSettings(BaseSettings):
@@ -58,6 +101,20 @@ class AppSettings(BaseSettings):
     CLEAR_DOWNLOADS: bool = True
     TARGET_WIDTH: int = 1080
     TARGET_HEIGHT: int = 1920
+
+    @field_validator("CONCURRENT_DOWNLOADS", "MAX_RETRIES")
+    @classmethod
+    def positive_int(cls, v):
+        if v <= 0:
+            raise ValueError(f"Must be positive, got {v}")
+        return v
+
+    @field_validator("CHECK_INTERVAL")
+    @classmethod
+    def non_negative_int(cls, v):
+        if v < 0:
+            raise ValueError(f"Must be non-negative, got {v}")
+        return v
 
 
 def _load_settings() -> tuple[TikTokSettings, VKSettings, AppSettings]:

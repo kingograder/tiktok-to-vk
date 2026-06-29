@@ -20,7 +20,7 @@ from app.database.functions import (
 from app.database.models import Video
 from app.tiktok.downloader import download_video
 from app.tiktok.scrapper import discover_posts
-from app.validation import check_prerequisites, validate_tiktok, validate_vk
+from app.validation import validate_tiktok, validate_vk
 from app.video.processor import ensure_vertical
 from app.vk.uploader import build_description, upload_clip
 from config.config import config
@@ -276,8 +276,6 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
-
-    check_prerequisites()
 
     log_file = config.app.LOG_FILE
     if log_file:
