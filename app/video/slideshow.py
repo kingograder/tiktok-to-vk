@@ -40,7 +40,7 @@ def _probe_duration(path: Path) -> float | None:
 
 
 def _render_slideshow_sync(video_id: str, download_dir: str) -> str | None:
-    tmp = SLIDESHOW_TMP_DIR
+    tmp = SLIDESHOW_TMP_DIR / video_id
     tmp.mkdir(parents=True, exist_ok=True)
 
     image_files = sorted(f for f in os.listdir(tmp) if f.endswith(".jpg"))
@@ -111,17 +111,34 @@ async def render_slideshow(video_id: str, download_dir: str) -> str | None:
     return await asyncio.to_thread(_render_slideshow_sync, video_id, download_dir)
 
 
-def cleanup_slideshow_tmp() -> None:
-    tmp = SLIDESHOW_TMP_DIR
-    if not tmp.exists():
-        return
-    for f in tmp.iterdir():
+def cleanup_slideshow_tmp(video_id: str | None = None) -> None:
+    if video_id:
+        tmp = SLIDESHOW_TMP_DIR / video_id
+        if tmp.exists():
+            _remove_dir(tmp)
+    else:
+        base = SLIDESHOW_TMP_DIR
+        if base.exists():
+            for sub in base.iterdir():
+                if sub.is_dir():
+                    _remove_dir(sub)
+                else:
+                    try:
+                        os.remove(sub)
+                    except OSError:
+                        pass
+
+
+def _remove_dir(path: Path) -> None:
+    for f in path.iterdir():
         try:
             if f.is_dir():
-                for sub in f.iterdir():
-                    os.remove(sub)
-                f.rmdir()
+                _remove_dir(f)
             else:
                 os.remove(f)
-        except Exception:
+        except OSError:
             pass
+    try:
+        path.rmdir()
+    except OSError:
+        pass

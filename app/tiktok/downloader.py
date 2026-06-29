@@ -147,8 +147,9 @@ def _download_file_sync(file_url: str, dest: str, proxy: str | None = None) -> b
 
 def _download_slideshow_sync(video_id: str, item_struct: dict, download_dir: str,
                              cookies_file: str, proxy: str | None = None) -> str | None:
-    cleanup_slideshow_tmp()
-    SLIDESHOW_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    cleanup_slideshow_tmp(video_id)
+    tmp_dir = SLIDESHOW_TMP_DIR / video_id
+    tmp_dir.mkdir(parents=True, exist_ok=True)
 
     image_urls = _extract_image_urls(item_struct)
     if not image_urls:
@@ -156,10 +157,10 @@ def _download_slideshow_sync(video_id: str, item_struct: dict, download_dir: str
         return None
 
     for i, img_url in enumerate(image_urls):
-        dest = str(SLIDESHOW_TMP_DIR / f"{i + 1}.jpg")
+        dest = str(tmp_dir / f"{i + 1}.jpg")
         if not _download_file_sync(img_url, dest, proxy):
             logger.error("Failed to download image %d for %s", i + 1, video_id)
-            cleanup_slideshow_tmp()
+            cleanup_slideshow_tmp(video_id)
             return None
 
     logger.info("Downloaded %d images for %s", len(image_urls), video_id)
@@ -167,19 +168,19 @@ def _download_slideshow_sync(video_id: str, item_struct: dict, download_dir: str
     audio_url = _extract_audio_url(item_struct)
     if not audio_url:
         logger.error("No audio URL found for %s", video_id)
-        cleanup_slideshow_tmp()
+        cleanup_slideshow_tmp(video_id)
         return None
 
-    audio_dest = str(SLIDESHOW_TMP_DIR / "audio.mp3")
+    audio_dest = str(tmp_dir / "audio.mp3")
     if not _download_file_sync(audio_url, audio_dest, proxy):
         logger.error("Failed to download audio for %s", video_id)
-        cleanup_slideshow_tmp()
+        cleanup_slideshow_tmp(video_id)
         return None
 
     logger.info("Downloaded audio for %s", video_id)
 
     result = _render_slideshow_sync(video_id, download_dir)
-    cleanup_slideshow_tmp()
+    cleanup_slideshow_tmp(video_id)
     return result
 
 
