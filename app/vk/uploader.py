@@ -92,8 +92,7 @@ async def upload_clip(video_path: str, description: str) -> tuple[int, int] | No
                     pass
 
             logger.warning("VK processing poll timed out for %s", video_path)
-
-            return vk_video_id, vk_owner_id
+            return None
 
     except Exception as e:
         logger.error("Error uploading %s: %s", video_path, e)
