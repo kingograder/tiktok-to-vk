@@ -67,15 +67,11 @@ def _ensure_vertical_sync(video_path: str) -> str:
         _convert_video(video_path, out)
     except Exception:
         logger.warning("Failed to convert %s, keeping original", video_path, exc_info=True)
-        try:
+        if os.path.exists(out):
             os.remove(out)
-        except FileNotFoundError:
-            pass
         return video_path
-    try:
+    if os.path.exists(video_path):
         os.remove(video_path)
-    except OSError:
-        pass
     logger.info("Converted %s -> vertical (%s)", os.path.basename(video_path),
                  "rotate" if config.app.ROTATE_VIDEO else "pad")
     return out
