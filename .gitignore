@@ -21,3 +21,4 @@ build/
 .vscode/
 pain.txt
 plan.txt
+uv.lock
