@@ -1,7 +1,6 @@
 import logging
 
 import aiohttp
-from curl_cffi import requests as cffi_requests
 
 from app.tiktok.scrapper import _parse_cookies
 from config.config import config
@@ -9,7 +8,7 @@ from config.config import config
 logger = logging.getLogger(__name__)
 
 
-def validate_tiktok() -> bool:
+async def validate_tiktok() -> bool:
     ok = True
 
     if not config.tiktok.COOKIES_FILE:
@@ -36,19 +35,18 @@ def validate_tiktok() -> bool:
         return False
 
     logger.info("Testing TikTok connectivity...")
-    proxies = {"http": config.tiktok.PROXY, "https": config.tiktok.PROXY} if config.tiktok.PROXY else None
     try:
-        resp = cffi_requests.get(
-            "https://www.tiktok.com/",
-            impersonate="chrome",
-            proxies=proxies,
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            logger.error("TikTok is unreachable (HTTP %d) — check proxy and network", resp.status_code)
-            ok = False
-        else:
-            logger.info("TikTok: connection OK")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://www.tiktok.com/",
+                proxy=config.tiktok.PROXY,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    logger.error("TikTok is unreachable (HTTP %d) — check proxy and network", resp.status)
+                    ok = False
+                else:
+                    logger.info("TikTok: connection OK")
     except Exception as e:
         logger.error("TikTok is unreachable: %s — check proxy and network", e)
         ok = False
