@@ -8,12 +8,12 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database.functions import (
+    bulk_mark_discovered,
     get_undeleted,
     get_undownloaded,
     get_unuploaded,
     init_db,
     mark_deleted,
-    mark_discovered,
     mark_downloaded,
     mark_uploaded,
 )
@@ -199,15 +199,7 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
             continue
 
         async with session_factory() as session:
-            new_count = 0
-            for item in all_items:
-                existed = await mark_discovered(
-                    session,
-                    str(item.get("id", "")),
-                    item.get("author", {}).get("uniqueId"),
-                )
-                if not existed:
-                    new_count += 1
+            new_count = await bulk_mark_discovered(session, all_items)
             await session.commit()
 
         async with session_factory() as session:

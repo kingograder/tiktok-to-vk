@@ -33,6 +33,35 @@ async def mark_discovered(
     return False
 
 
+async def bulk_mark_discovered(
+    session: AsyncSession,
+    items: list[dict],
+) -> int:
+    tiktok_ids = [str(item.get("id", "")) for item in items if item.get("id")]
+    if not tiktok_ids:
+        return 0
+
+    result = await session.execute(
+        select(Video).where(Video.tiktok_id.in_(tiktok_ids))
+    )
+    existing = {v.tiktok_id: v for v in result.scalars().all()}
+
+    new_count = 0
+    for item in items:
+        vid = str(item.get("id", ""))
+        if not vid:
+            continue
+        username = item.get("author", {}).get("uniqueId")
+        if vid in existing:
+            if not existing[vid].username and username:
+                existing[vid].username = username
+        else:
+            session.add(Video(tiktok_id=vid, username=username))
+            new_count += 1
+
+    return new_count
+
+
 async def get_undownloaded(session: AsyncSession) -> list[Video]:
     result = await session.execute(
         select(Video).where(Video.downloaded_at.is_(None))
