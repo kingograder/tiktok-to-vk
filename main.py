@@ -318,8 +318,13 @@ if __name__ == "__main__":
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     os.makedirs(config.app.TEMP_DIR, exist_ok=True)
 
-    tiktok_ok = validate_tiktok()
-    vk_ok = asyncio.run(validate_vk())
+    async def _validate_all():
+        tiktok_task = asyncio.to_thread(validate_tiktok)
+        vk_task = validate_vk()
+        tiktok_ok, vk_ok = await asyncio.gather(tiktok_task, vk_task)
+        return tiktok_ok, vk_ok
+
+    tiktok_ok, vk_ok = asyncio.run(_validate_all())
 
     if not tiktok_ok:
         logger.error("TikTok validation failed — check cookies, proxy, and collection URL")
