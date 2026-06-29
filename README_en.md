@@ -18,9 +18,61 @@ Automatically discovers posts from a TikTok collection, downloads videos, conver
 ## Requirements
 
 - Python 3.10+
-- ffmpeg (for video processing)
+- Git
+- ffmpeg (for video processing; requires h264 and h265/x265 support)
+- uv (recommended)
 - TikTok session cookies (`cookies.txt` in Netscape format)
 - VK access token with video upload permission
+
+## Dependency Installation
+
+### Ubuntu (apt)
+
+On Ubuntu the standard ffmpeg package already includes most proprietary codecs (x264, x265, etc.). Enable universe/multiverse for the full set:
+
+```bash
+sudo add-apt-repository universe
+sudo add-apt-repository multiverse
+sudo apt update
+sudo apt install ffmpeg ubuntu-restricted-extras
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Debian (apt)
+
+On Debian closed-source components are strictly separated. Enable contrib, non-free and non-free-firmware in `/etc/apt/sources.list`:
+
+```
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+```
+
+Then install:
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Fedora / RHEL (dnf + RPM Fusion)
+
+Enable RPM Fusion and swap the stripped ffmpeg-free for the full version:
+
+```bash
+sudo dnf install \
+  https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+  https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf swap ffmpeg-free ffmpeg --allowerasing
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Windows 10/11 (winget)
+
+```powershell
+winget install -e --id Git.Git
+winget install -e --id Gyan.FFmpeg
+winget install -e --id astral-sh.uv
+```
 
 ## Getting VK Token
 

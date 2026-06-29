@@ -18,9 +18,61 @@
 ## Требования
 
 - Python 3.10+
-- ffmpeg (для обработки видео)
+- Git
+- ffmpeg (для обработки видео; требуется поддержка h264 и h265/x265)
+- uv (рекомендуется)
 - Куки сессии TikTok (`cookies.txt` в формате Netscape)
 - Токен VK с правом загрузки видео
+
+## Установка зависимостей
+
+### Ubuntu (apt)
+
+В Ubuntu стандартный пакет ffmpeg уже включает большинство проприетарных кодеков (x264, x265 и др.). Для полного набора включите universe/multiverse:
+
+```bash
+sudo add-apt-repository universe
+sudo add-apt-repository multiverse
+sudo apt update
+sudo apt install ffmpeg ubuntu-restricted-extras
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Debian (apt)
+
+В Debian компоненты с закрытым исходным кодом строго отделены. Разрешите ветки contrib и non-free в `/etc/apt/sources.list`:
+
+```
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+```
+
+Затем установите:
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Fedora / RHEL (dnf + RPM Fusion)
+
+Включите RPM Fusion и замените урезанный ffmpeg-free на полную версию:
+
+```bash
+sudo dnf install \
+  https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+  https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf swap ffmpeg-free ffmpeg --allowerasing
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Windows 10/11 (winget)
+
+```powershell
+winget install -e --id Git.Git
+winget install -e --id Gyan.FFmpeg
+winget install -e --id astral-sh.uv
+```
 
 ## Получение VK токена
 
