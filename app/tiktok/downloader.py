@@ -43,7 +43,6 @@ def _fetch_post_data_sync(video_id: str, username: str, cookies_file: str,
     cookies = _parse_tiktok_cookies(cookies_file)
     proxies = {"http": proxy, "https": proxy} if proxy else None
 
-    last_err = None
     for attempt in range(config.app.MAX_RETRIES):
         try:
             resp = cffi_requests.get(
@@ -73,8 +72,7 @@ def _fetch_post_data_sync(video_id: str, username: str, cookies_file: str,
                 .get("itemStruct", {})
             )
 
-        except Exception as e:
-            last_err = e
+        except Exception:
             if attempt < config.app.MAX_RETRIES - 1:
                 time.sleep(2 * (attempt + 1))
                 continue

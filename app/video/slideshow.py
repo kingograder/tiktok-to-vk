@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -123,22 +124,16 @@ def cleanup_slideshow_tmp(video_id: str | None = None) -> None:
                 if sub.is_dir():
                     _remove_dir(sub)
                 else:
-                    try:
+                    with contextlib.suppress(OSError):
                         os.remove(sub)
-                    except OSError:
-                        pass
 
 
 def _remove_dir(path: Path) -> None:
     for f in path.iterdir():
-        try:
-            if f.is_dir():
-                _remove_dir(f)
-            else:
+        if f.is_dir():
+            _remove_dir(f)
+        else:
+            with contextlib.suppress(OSError):
                 os.remove(f)
-        except OSError:
-            pass
-    try:
+    with contextlib.suppress(OSError):
         path.rmdir()
-    except OSError:
-        pass

@@ -77,7 +77,7 @@ async def upload_clip(video_path: str, description: str) -> tuple[int, int] | No
             vk_video_id = int(video_info["video_id"])
             vk_owner_id = int(video_info["owner_id"])
 
-            for attempt in range(config.vk.POLL_ATTEMPTS):
+            for _attempt in range(config.vk.POLL_ATTEMPTS):
                 await asyncio.sleep(config.vk.POLL_INTERVAL)
                 try:
                     result = await _vk_method(
