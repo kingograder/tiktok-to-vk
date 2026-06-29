@@ -40,7 +40,9 @@
 ```bash
 git clone https://github.com/kingograder/tiktok-to-vk.git
 cd tiktok-to-vk
-pip install .
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 Или с [uv](https://github.com/astral-sh/uv):

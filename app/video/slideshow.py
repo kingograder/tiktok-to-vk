@@ -76,9 +76,9 @@ def _render_slideshow_sync(video_id: str, download_dir: str) -> str | None:
 
     with open(concat_file, "w") as f:
         for img_file in padded_images:
-            f.write(f"file '{padded_dir / img_file}'\n")
+            f.write(f"file '{(padded_dir / img_file).resolve()}'\n")
             f.write(f"duration {slide_duration}\n")
-        f.write(f"file '{padded_dir / padded_images[-1]}'\n")
+        f.write(f"file '{(padded_dir / padded_images[-1]).resolve()}'\n")
 
     logger.info("Rendering slideshow %s: %d images, %.1fs total", video_id, image_count, audio_duration)
 

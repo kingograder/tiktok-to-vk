@@ -40,7 +40,9 @@ Automatically discovers posts from a TikTok collection, downloads videos, conver
 ```bash
 git clone https://github.com/kingograder/tiktok-to-vk.git
 cd tiktok-to-vk
-pip install .
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 Or with [uv](https://github.com/astral-sh/uv):
@@ -61,7 +63,7 @@ Edit `.env`:
 |---|---|
 | `TIKTOK_COLLECTION_URL` | TikTok collection URL |
 | `TIKTOK_COOKIES_FILE` | Path to cookies.txt (default: `cookies.txt`) |
-| `TIKTOK_PROXY` | Proxy for TikTok requests (optional) |
+| `TIKTOK_PROXY` | Proxy for TikTok requests (optional, recommended for Russian users) |
 | `VK_TOKEN` | VK access token with video upload permission |
 | `APP_DB_PATH` | SQLite database path (default: `data/clips.db`) |
 | `APP_CHECK_INTERVAL` | Seconds between cycles in daemon mode (default: `1800`) |
