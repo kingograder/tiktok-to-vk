@@ -1,10 +1,9 @@
 import logging
-import sys
 
 import aiohttp
 from curl_cffi import requests as cffi_requests
 
-from app.tiktok.scrapper import _parse_cookies, _API_URL
+from app.tiktok.scrapper import _parse_cookies
 from config.config import config
 
 logger = logging.getLogger(__name__)
@@ -17,11 +16,7 @@ def validate_tiktok() -> bool:
         logger.error("TIKTOK_COOKIES_FILE is not set")
         return False
 
-    try:
-        cookies = _parse_cookies(config.tiktok.COOKIES_FILE)
-    except OSError as e:
-        logger.error("Cannot read cookies file %s: %s", config.tiktok.COOKIES_FILE, e)
-        return False
+    cookies = _parse_cookies(config.tiktok.COOKIES_FILE)
 
     if not cookies:
         logger.error("Cookies file %s is empty or invalid", config.tiktok.COOKIES_FILE)
@@ -89,7 +84,10 @@ async def validate_vk() -> bool:
             users = data.get("response", [])
             if users:
                 user = users[0]
-                logger.info("VK: authenticated as %s %s (id=%s)", user.get("first_name"), user.get("last_name"), user.get("id"))
+                logger.info(
+                    "VK: authenticated as %s %s (id=%s)",
+                    user.get("first_name"), user.get("last_name"), user.get("id"),
+                )
             return True
 
     except Exception as e:

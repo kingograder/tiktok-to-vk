@@ -45,11 +45,11 @@ async def _vk_method(method: str, session: aiohttp.ClientSession, **params) -> d
 
 
 async def upload_clip(video_path: str, description: str) -> tuple[int, int] | None:
-    try:
-        file_size = os.path.getsize(video_path)
-    except OSError as e:
-        logger.error("Cannot read file size for %s: %s", video_path, e)
+    if not os.path.isfile(video_path):
+        logger.error("File not found: %s", video_path)
         return None
+
+    file_size = os.path.getsize(video_path)
 
     try:
         async with aiohttp.ClientSession() as session:

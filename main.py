@@ -52,10 +52,10 @@ def _parse_collections() -> list[str]:
 
 
 def _cleanup_file_sync(path: str) -> bool:
+    if not os.path.exists(path):
+        return True
     try:
         os.remove(path)
-        return True
-    except FileNotFoundError:
         return True
     except OSError as e:
         logger.warning("Failed to delete %s: %s", path, e)

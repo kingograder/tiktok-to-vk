@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 
@@ -38,16 +39,16 @@ def _parse_collection_url(url: str) -> str | None:
 
 def _parse_cookies(path: str) -> dict[str, str]:
     cookies: dict[str, str] = {}
-    try:
-        with open(path) as f:
-            for line in f:
-                if line.startswith("#") or not line.strip():
-                    continue
-                parts = line.strip().split("\t")
-                if len(parts) >= 7:
-                    cookies[parts[5]] = parts[6]
-    except OSError as e:
-        logger.warning("Failed to read cookies from %s: %s", path, e)
+    if not os.path.exists(path):
+        logger.warning("Cookies file not found: %s", path)
+        return cookies
+    with open(path) as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            parts = line.strip().split("\t")
+            if len(parts) >= 7:
+                cookies[parts[5]] = parts[6]
     return cookies
 
 
@@ -57,10 +58,9 @@ def _traverse(obj, path, default=None):
         if isinstance(current, dict):
             current = current.get(key)
         elif isinstance(current, (list, tuple)) and isinstance(key, int):
-            try:
-                current = current[key]
-            except (IndexError, TypeError):
+            if key < 0 or key >= len(current):
                 return default
+            current = current[key]
         else:
             return default
         if current is None:
