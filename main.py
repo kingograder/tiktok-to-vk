@@ -113,11 +113,8 @@ async def _process_one(
                     await asyncio.sleep(2 * (attempt + 1))
 
             if path is None:
-                async with session_factory() as session:
-                    await mark_downloaded(session, vid, "")
-                    await session.commit()
                 _reset_retry(vid)
-                logger.error("Failed to download %s @%s", vid, username)
+                logger.error("Failed to download %s @%s after %d attempts", vid, username, config.app.MAX_RETRIES)
                 return
 
             try:
