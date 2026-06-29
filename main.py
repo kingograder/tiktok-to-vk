@@ -184,6 +184,10 @@ async def process_cycle(session_factory: async_sessionmaker[AsyncSession]) -> No
         item_map = {str(item.get("id", "")): item for item in all_items}
 
         tasks = []
+        for video in pending:
+            item = item_map.get(video.tiktok_id)
+            if item:
+                tasks.append(_process_one(download_sem, item, session_factory))
         logger.info("Collection: %d total, %d new, %d to download", len(all_items), new_count, len(tasks))
 
         if tasks:

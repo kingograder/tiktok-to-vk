@@ -61,7 +61,7 @@ cp .env.example .env
 |---|---|
 | `TIKTOK_COLLECTION_URL` | Ссылка на коллекцию TikTok |
 | `TIKTOK_COOKIES_FILE` | Путь к cookies.txt (по умолчанию: `cookies.txt`) |
-| `TIKTOK_PROXY` | Прокси для запросов к TikTok (опционально) |
+| `TIKTOK_PROXY` | Прокси для запросов к TikTok (опционально, рекомендовано для пользователей из России) |
 | `VK_TOKEN` | Токен VK с правом загрузки видео |
 | `APP_DB_PATH` | Путь к SQLite базе (по умолчанию: `data/clips.db`) |
 | `APP_CHECK_INTERVAL` | Секунды между циклами в режиме демона (по умолчанию: `1800`) |

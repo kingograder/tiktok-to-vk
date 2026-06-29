@@ -48,6 +48,7 @@ class VKSettings(BaseSettings):
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_", env_file=".env", extra="ignore")
     DOWNLOAD_DIR: str = "data/downloads"
+    TEMP_DIR: str = "data/temp"
     CHECK_INTERVAL: int = 3600
     DB_PATH: str = "data/database.db"
     LOG_FILE: str = ""
