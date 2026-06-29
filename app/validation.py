@@ -16,6 +16,7 @@ def validate_tiktok() -> bool:
         logger.error("TIKTOK_COOKIES_FILE is not set")
         return False
 
+    logger.info("Checking TikTok cookies...")
     cookies = _parse_cookies(config.tiktok.COOKIES_FILE)
 
     if not cookies:
@@ -34,6 +35,7 @@ def validate_tiktok() -> bool:
         logger.error("TIKTOK_COLLECTION_URL is not set")
         return False
 
+    logger.info("Testing TikTok connectivity...")
     proxies = {"http": config.tiktok.PROXY, "https": config.tiktok.PROXY} if config.tiktok.PROXY else None
     try:
         resp = cffi_requests.get(
@@ -55,6 +57,7 @@ def validate_tiktok() -> bool:
 
 
 async def validate_vk() -> bool:
+    logger.info("Checking VK token...")
     try:
         async with aiohttp.ClientSession() as session:
             payload = {
@@ -73,7 +76,7 @@ async def validate_vk() -> bool:
                 code = error.get("error_code") if isinstance(error, dict) else None
                 msg = error.get("error_msg", str(error)) if isinstance(error, dict) else str(error)
 
-                if code == 5:
+                if code in (4, 5):
                     logger.error("VK token is invalid or expired: %s", msg)
                 elif code == 15:
                     logger.error("VK token access denied: %s", msg)
