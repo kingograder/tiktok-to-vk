@@ -20,7 +20,7 @@ from app.database.functions import (
 from app.database.models import Video
 from app.tiktok.downloader import download_video
 from app.tiktok.scrapper import discover_posts
-from app.validation import validate_tiktok, validate_vk
+from app.validation import check_prerequisites, validate_tiktok, validate_vk
 from app.video.processor import ensure_vertical
 from app.vk.uploader import build_description, upload_clip
 from config.config import config
@@ -270,20 +270,6 @@ async def run_daemon(session_factory: async_sessionmaker[AsyncSession], engine) 
     logger.info("Daemon stopped")
 
 
-def _check_prerequisites() -> None:
-    if not config.tiktok.COOKIES_FILE or not os.path.exists(config.tiktok.COOKIES_FILE):
-        logger.error("Cookies file not found: %s", config.tiktok.COOKIES_FILE)
-        sys.exit(1)
-
-    if not config.tiktok.COLLECTION_URL:
-        logger.error("TIKTOK_COLLECTION_URL is not set in .env")
-        sys.exit(1)
-
-    if not config.vk.TOKEN:
-        logger.error("VK_TOKEN is not set in .env")
-        sys.exit(1)
-
-
 if __name__ == "__main__":
     import argparse
 
@@ -291,7 +277,7 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    _check_prerequisites()
+    check_prerequisites()
 
     log_file = config.app.LOG_FILE
     if log_file:

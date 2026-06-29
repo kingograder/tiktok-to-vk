@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 
 import aiohttp
 
@@ -8,12 +10,22 @@ from config.config import config
 logger = logging.getLogger(__name__)
 
 
+def check_prerequisites() -> None:
+    if not config.tiktok.COOKIES_FILE or not os.path.exists(config.tiktok.COOKIES_FILE):
+        logger.error("Cookies file not found: %s", config.tiktok.COOKIES_FILE)
+        sys.exit(1)
+
+    if not config.tiktok.COLLECTION_URL:
+        logger.error("TIKTOK_COLLECTION_URL is not set in .env")
+        sys.exit(1)
+
+    if not config.vk.TOKEN:
+        logger.error("VK_TOKEN is not set in .env")
+        sys.exit(1)
+
+
 async def validate_tiktok() -> bool:
     ok = True
-
-    if not config.tiktok.COOKIES_FILE:
-        logger.error("TIKTOK_COOKIES_FILE is not set")
-        return False
 
     logger.info("Checking TikTok cookies...")
     cookies = _parse_cookies(config.tiktok.COOKIES_FILE)
@@ -29,10 +41,6 @@ async def validate_tiktok() -> bool:
         ok = False
     if not has_session:
         logger.warning("Cookies file missing session cookies — some features may not work")
-
-    if not config.tiktok.COLLECTION_URL:
-        logger.error("TIKTOK_COLLECTION_URL is not set")
-        return False
 
     logger.info("Validating collection URLs...")
     urls = [u.strip() for u in config.tiktok.COLLECTION_URL.split(",") if u.strip()]
