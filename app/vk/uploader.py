@@ -31,12 +31,12 @@ async def _vk_method(method: str, session: aiohttp.ClientSession, **params) -> d
             await asyncio.sleep(wait)
         _vk_last_request_time = time.monotonic()
 
-    payload = {**params, "access_token": config.vk.TOKEN, "v": config.vk.API_VERSION}
-    async with session.post(f"{VK_API_URL}/{method}", data=payload) as resp:
-        if resp.status != 200:
-            text = await resp.text()
-            raise Exception(f"VK API HTTP {resp.status}: {text[:200]}")
-        data = await resp.json()
+        payload = {**params, "access_token": config.vk.TOKEN, "v": config.vk.API_VERSION}
+        async with session.post(f"{VK_API_URL}/{method}", data=payload) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise Exception(f"VK API HTTP {resp.status}: {text[:200]}")
+            data = await resp.json()
     if "error" in data:
         error = data["error"]
         error_msg = error.get("error_msg", str(error)) if isinstance(error, dict) else str(error)
