@@ -2,7 +2,7 @@ import logging
 
 import aiohttp
 
-from app.tiktok.scrapper import _parse_cookies
+from app.tiktok.scrapper import _parse_collection_url, _parse_cookies
 from config.config import config
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,17 @@ async def validate_tiktok() -> bool:
     if not config.tiktok.COLLECTION_URL:
         logger.error("TIKTOK_COLLECTION_URL is not set")
         return False
+
+    logger.info("Validating collection URLs...")
+    urls = [u.strip() for u in config.tiktok.COLLECTION_URL.split(",") if u.strip()]
+    for url in urls:
+        collection_id = _parse_collection_url(url)
+        if not collection_id:
+            logger.error("Invalid collection URL format: %s", url)
+            logger.error("Expected: https://www.tiktok.com/@user/collection/name-ID")
+            ok = False
+        else:
+            logger.info("Collection OK: %s (id=%s)", url, collection_id)
 
     logger.info("Testing TikTok connectivity...")
     try:
